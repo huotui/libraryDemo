@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 from config import Config
 from models import db
@@ -7,6 +7,18 @@ from routes.books import books_bp
 from routes.borrow import borrow_bp
 from routes.users import users_bp
 from routes.categories import categories_bp
+import logging
+import traceback
+import json
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def create_app():
     app = Flask(__name__)
@@ -14,6 +26,39 @@ def create_app():
     
     db.init_app(app)
     CORS(app)
+    
+    @app.before_request
+    def log_request_info():
+        logger.info(f'\n{"="*80}')
+        logger.info(f'Request: {request.method} {request.url}')
+        logger.info(f'Headers: {dict(request.headers)}')
+        logger.info(f'Args: {dict(request.args)}')
+        if request.is_json:
+            try:
+                logger.info(f'JSON Body: {json.dumps(request.get_json(), ensure_ascii=False)}')
+            except Exception:
+                logger.info(f'Raw Body: {request.get_data(as_text=True)}')
+        elif request.form:
+            logger.info(f'Form Data: {dict(request.form)}')
+        if request.files:
+            logger.info(f'Files: {list(request.files.keys())}')
+        logger.info(f'{"="*80}')
+    
+    @app.after_request
+    def log_response_info(response):
+        logger.info(f'Response: {response.status_code} {response.status}')
+        return response
+    
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        logger.error(f'\n{"="*80}')
+        logger.error(f'EXCEPTION OCCURRED: {type(e).__name__}: {str(e)}')
+        logger.error(f'Request URL: {request.method} {request.url}')
+        if request.is_json:
+            logger.error(f'Request JSON: {json.dumps(request.get_json(), ensure_ascii=False)}')
+        logger.error(f'Traceback:\n{traceback.format_exc()}')
+        logger.error(f'{"="*80}')
+        return {"code": 500, "message": f"服务器内部错误: {str(e)}", "detail": traceback.format_exc()}, 500
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(books_bp, url_prefix='/api/books')

@@ -1,8 +1,13 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, current_app
 from models import db, Book
 from datetime import datetime
 import base64
 import io
+import logging
+import traceback
+import json
+
+logger = logging.getLogger(__name__)
 
 books_bp = Blueprint('books', __name__)
 
@@ -54,73 +59,96 @@ def get_book(book_id):
 
 @books_bp.route('', methods=['POST'])
 def create_book():
-    data = request.get_json()
-    
-    if Book.query.filter_by(isbn=data.get('isbn')).first():
-        return jsonify({'code': 400, 'message': 'ISBN已存在'}), 400
-    
-    publish_date = None
-    if data.get('publish_date'):
-        try:
-            publish_date = datetime.strptime(data['publish_date'], '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({'code': 400, 'message': '日期格式错误'}), 400
-    
-    total_copies = data.get('total_copies', 1)
-    
-    book = Book(
-        title=data.get('title'),
-        author=data.get('author'),
-        isbn=data.get('isbn'),
-        category_id=data.get('category_id'),
-        publisher=data.get('publisher'),
-        publish_date=publish_date,
-        total_copies=total_copies,
-        available_copies=total_copies,
-        image_base64=data.get('image_base64')
-    )
-    
-    db.session.add(book)
-    db.session.commit()
-    
-    return jsonify({
-        'code': 201,
-        'message': '创建成功',
-        'data': book.to_dict()
-    })
+    try:
+        data = request.get_json()
+        logger.info(f'Creating book with data: {json.dumps(data, ensure_ascii=False)[:500]}...')
+        
+        if Book.query.filter_by(isbn=data.get('isbn')).first():
+            logger.warning(f'ISBN already exists: {data.get("isbn")}')
+            return jsonify({'code': 400, 'message': 'ISBN已存在'}), 400
+        
+        publish_date = None
+        if data.get('publish_date'):
+            try:
+                publish_date = datetime.strptime(data['publish_date'], '%Y-%m-%d').date()
+            except ValueError as e:
+                logger.error(f'Invalid date format: {data.get("publish_date")}, error: {e}')
+                return jsonify({'code': 400, 'message': '日期格式错误'}), 400
+        
+        total_copies = data.get('total_copies', 1)
+        
+        book = Book(
+            title=data.get('title'),
+            author=data.get('author'),
+            isbn=data.get('isbn'),
+            category_id=data.get('category_id'),
+            publisher=data.get('publisher'),
+            publish_date=publish_date,
+            total_copies=total_copies,
+            available_copies=total_copies,
+            image_base64=data.get('image_base64')
+        )
+        
+        db.session.add(book)
+        db.session.commit()
+        
+        logger.info(f'Book created successfully: id={book.id}, title={book.title}')
+        return jsonify({
+            'code': 201,
+            'message': '创建成功',
+            'data': book.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error creating book: {type(e).__name__}: {e}')
+        logger.error(f'Request data: {json.dumps(data if "data" in locals() else {}, ensure_ascii=False)[:500]}')
+        logger.error(f'Traceback: {traceback.format_exc()}')
+        return jsonify({'code': 500, 'message': f'创建图书失败: {str(e)}', 'detail': str(e)}), 500
 
 @books_bp.route('/<int:book_id>', methods=['PUT'])
 def update_book(book_id):
-    book = Book.query.get_or_404(book_id)
-    data = request.get_json()
-    
-    book.title = data.get('title', book.title)
-    book.author = data.get('author', book.author)
-    book.isbn = data.get('isbn', book.isbn)
-    book.category_id = data.get('category_id', book.category_id)
-    book.publisher = data.get('publisher', book.publisher)
-    
-    if data.get('publish_date'):
-        try:
-            book.publish_date = datetime.strptime(data['publish_date'], '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({'code': 400, 'message': '日期格式错误'}), 400
-    
-    if 'total_copies' in data:
-        diff = data['total_copies'] - book.total_copies
-        book.total_copies = data['total_copies']
-        book.available_copies = max(0, book.available_copies + diff)
-    
-    if 'image_base64' in data:
-        book.image_base64 = data['image_base64']
-    
-    db.session.commit()
-    
-    return jsonify({
-        'code': 200,
-        'message': '更新成功',
-        'data': book.to_dict()
-    })
+    try:
+        book = Book.query.get_or_404(book_id)
+        data = request.get_json()
+        logger.info(f'Updating book id={book_id} with data: {json.dumps(data, ensure_ascii=False)[:500]}...')
+        
+        book.title = data.get('title', book.title)
+        book.author = data.get('author', book.author)
+        book.isbn = data.get('isbn', book.isbn)
+        book.category_id = data.get('category_id', book.category_id)
+        book.publisher = data.get('publisher', book.publisher)
+        
+        if data.get('publish_date'):
+            try:
+                book.publish_date = datetime.strptime(data['publish_date'], '%Y-%m-%d').date()
+            except ValueError as e:
+                logger.error(f'Invalid date format: {data.get("publish_date")}, error: {e}')
+                return jsonify({'code': 400, 'message': '日期格式错误'}), 400
+        
+        if 'total_copies' in data:
+            diff = data['total_copies'] - book.total_copies
+            book.total_copies = data['total_copies']
+            book.available_copies = max(0, book.available_copies + diff)
+        
+        if 'image_base64' in data:
+            image_size = len(data['image_base64']) if data['image_base64'] else 0
+            logger.info(f'Updating image_base64, size: {image_size} bytes')
+            book.image_base64 = data['image_base64']
+        
+        db.session.commit()
+        
+        logger.info(f'Book updated successfully: id={book_id}')
+        return jsonify({
+            'code': 200,
+            'message': '更新成功',
+            'data': book.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error updating book id={book_id}: {type(e).__name__}: {e}')
+        logger.error(f'Request data: {json.dumps(data if "data" in locals() else {}, ensure_ascii=False)[:500]}')
+        logger.error(f'Traceback: {traceback.format_exc()}')
+        return jsonify({'code': 500, 'message': f'更新图书失败: {str(e)}', 'detail': str(e)}), 500
 
 @books_bp.route('/<int:book_id>/image', methods=['GET'])
 def download_book_image(book_id):
