@@ -28,7 +28,7 @@
 | 首页 | 数据看板 | 今日借阅数、在借图书、逾期提醒、最近操作 | 管理员 |
 | 首页 | 快捷操作 | 快速借书、快速还书、添加图书 | 管理员 |
 | 图书管理 | 图书列表 | 分页展示、搜索筛选、状态显示 | 管理员 |
-| 图书管理 | 图书表单 | 新增/编辑图书信息（书名、作者、ISBN、分类、库存） | 管理员 |
+| 图书管理 | 图书表单 | 新增/编辑图书信息（书名、作者、ISBN、分类、库存、封面图片） | 管理员 |
 | 图书查询 | 图书列表 | 搜索筛选、查看图书详情、自助借书 | 所有用户 |
 | 借阅管理 | 借还书 | 扫描/输入用户ID和图书ID进行借还操作 | 管理员 |
 | 借阅管理 | 借阅记录 | 按时间、用户、图书筛选，显示借阅状态、自助还书 | 所有用户 |
@@ -123,6 +123,7 @@ flowchart TD
 | publish_date | DATE | - | 出版日期 |
 | total_copies | INTEGER | DEFAULT 1 | 总库存 |
 | available_copies | INTEGER | DEFAULT 1 | 可借库存 |
+| image_base64 | TEXT | - | 封面图片Base64编码，默认为空 |
 | created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 
 ### 5.3 分类表 (categories)
@@ -192,10 +193,11 @@ flowchart TD
 | 路由 | 方法 | 功能 | 请求体 | 响应 | 权限 |
 |------|------|------|--------|------|------|
 | /api/books | GET | 获取图书列表 | query: page, size, keyword, category_id | {code, message, data: {books, total}} | 所有用户 |
-| /api/books | POST | 添加图书 | Book对象 | {code, message, data} | 管理员 |
+| /api/books | POST | 添加图书 | Book对象(含可选image_base64) | {code, message, data} | 管理员 |
 | /api/books/:id | GET | 获取图书详情 | - | {code, message, data} | 所有用户 |
-| /api/books/:id | PUT | 更新图书 | Book对象 | {code, message, data} | 管理员 |
+| /api/books/:id | PUT | 更新图书 | Book对象(含可选image_base64) | {code, message, data} | 管理员 |
 | /api/books/:id | DELETE | 删除图书 | - | {code, message, data} | 管理员 |
+| /api/books/:id/image | GET | 下载图书封面图片 | - | 图片文件流 | 所有用户 |
 
 ### 8.3 借阅接口
 | 路由 | 方法 | 功能 | 请求体 | 响应 | 权限 |

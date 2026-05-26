@@ -78,14 +78,24 @@
 - **URL**: `POST /api/books`
 - **请求体**:
   ```json
-  { "title": "新书", "author": "作者", "isbn": "9787111111111", "category_id": 1, "publisher": "出版社", "publish_date": "2024-01-01", "total_copies": 5 }
+  { "title": "新书", "author": "作者", "isbn": "9787111111111", "category_id": 1, "publisher": "出版社", "publish_date": "2024-01-01", "total_copies": 5, "image_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRg..." }
   ```
+- **说明**: `image_base64` 字段可选，为图片的 base64 编码字符串（含 data URI 前缀）
 
 #### 2.4 更新图书
 - **URL**: `PUT /api/books/:id`
+- **请求体**: 同添加图书，所有字段可选
 
 #### 2.5 删除图书
 - **URL**: `DELETE /api/books/:id`
+
+#### 2.6 下载图书封面图片
+- **URL**: `GET /api/books/:id/image`
+- **响应**: 图片文件流（JPEG 格式）
+- **错误响应**:
+  ```json
+  { "code": 404, "message": "该图书暂无图片" }
+  ```
 
 ---
 

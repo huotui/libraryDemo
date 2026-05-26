@@ -1,6 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from models import db, Book
 from datetime import datetime
+import base64
+import io
 
 books_bp = Blueprint('books', __name__)
 
@@ -74,7 +76,8 @@ def create_book():
         publisher=data.get('publisher'),
         publish_date=publish_date,
         total_copies=total_copies,
-        available_copies=total_copies
+        available_copies=total_copies,
+        image_base64=data.get('image_base64')
     )
     
     db.session.add(book)
@@ -108,6 +111,9 @@ def update_book(book_id):
         book.total_copies = data['total_copies']
         book.available_copies = max(0, book.available_copies + diff)
     
+    if 'image_base64' in data:
+        book.image_base64 = data['image_base64']
+    
     db.session.commit()
     
     return jsonify({
@@ -115,6 +121,30 @@ def update_book(book_id):
         'message': '更新成功',
         'data': book.to_dict()
     })
+
+@books_bp.route('/<int:book_id>/image', methods=['GET'])
+def download_book_image(book_id):
+    book = Book.query.get_or_404(book_id)
+    
+    if not book.image_base64:
+        return jsonify({'code': 404, 'message': '该图书暂无图片'}), 404
+    
+    try:
+        image_data = book.image_base64
+        if ',' in image_data:
+            header, base64_str = image_data.split(',', 1)
+        else:
+            base64_str = image_data
+        
+        image_bytes = base64.b64decode(base64_str)
+        return send_file(
+            io.BytesIO(image_bytes),
+            mimetype='image/jpeg',
+            as_attachment=True,
+            download_name=f'book_{book_id}.jpg'
+        )
+    except Exception as e:
+        return jsonify({'code': 500, 'message': f'图片下载失败: {str(e)}'}), 500
 
 @books_bp.route('/<int:book_id>', methods=['DELETE'])
 def delete_book(book_id):

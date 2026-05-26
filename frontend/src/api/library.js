@@ -14,6 +14,8 @@ export const updateBookApi = (id, data) => api.put(`/books/${id}`, data)
 
 export const deleteBookApi = (id) => api.delete(`/books/${id}`)
 
+export const downloadBookImageApi = (id) => api.get(`/books/${id}/image`, { responseType: 'blob' })
+
 export const borrowBookApi = (data) => api.post('/borrow', data)
 
 export const returnBookApi = (data) => api.post('/return', data)

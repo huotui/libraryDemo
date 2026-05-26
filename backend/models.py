@@ -62,6 +62,7 @@ class Book(db.Model):
     publish_date = db.Column(db.Date)
     total_copies = db.Column(db.Integer, default=1)
     available_copies = db.Column(db.Integer, default=1)
+    image_base64 = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     borrow_records = db.relationship('BorrowRecord', backref='book', lazy=True)
@@ -79,6 +80,7 @@ class Book(db.Model):
             'publish_date': self.publish_date.strftime('%Y-%m-%d') if self.publish_date else None,
             'total_copies': self.total_copies,
             'available_copies': self.available_copies,
+            'image_base64': self.image_base64,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
         }
 

@@ -23,9 +23,35 @@ def create_app():
     
     with app.app_context():
         db.create_all()
+        migrate_database()
         init_data()
     
     return app
+
+def migrate_database():
+    """Database migration for adding new columns"""
+    import sqlite3
+    import os
+    
+    db_path = os.path.join(os.path.dirname(__file__), 'library.db')
+    if not os.path.exists(db_path):
+        return
+    
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("PRAGMA table_info(books)")
+        columns = [col[1] for col in cursor.fetchall()]
+        
+        if 'image_base64' not in columns:
+            cursor.execute("ALTER TABLE books ADD COLUMN image_base64 TEXT")
+            conn.commit()
+            print("Database migration completed: Added image_base64 column to books table")
+    except Exception as e:
+        print(f"Migration error: {e}")
+    finally:
+        conn.close()
 
 def init_data():
     from models import User, Category, Book
